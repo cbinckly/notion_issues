@@ -92,7 +92,36 @@ def parse_args():
             help=f"Use full repository path for issue key instead of name.")
     bitbucket_parser.set_defaults(func=bitbucket_sync)
 
+    notion_parser = subparsers.add_parser(
+            'notion', help='Maintain issues in Notion.')
+    notion_delete = notion_parser.add_mutually_exclusive_group(required=True)
+    notion_delete.add_argument('--delete-key', metavar="KEY", type=str,
+            help=f"Delete an issue with a specific key from Notion.")
+    notion_delete.add_argument('--delete-matching-keys', metavar="PATTERN",
+            type=str,
+            help=f"Delete issues with keys that begin with PATTERN.")
+    notion_parser.set_defaults(func=notion_maintain)
+
     return parser.parse_args()
+
+def notion_maintain(args, syncer):
+    notion_source = NotionSource(args.notion_token, args.notion_database)
+    if args.delete_key:
+        log.info(f"{args.delete_key}: archive issue requested.")
+        issues = notion_source.get_issues()
+        if args.delete_key in issues:
+            log.info(f"{args.delete_key}: archive issue.")
+            resp = notion_source.archive_issue(args.delete_key)
+            log.debug(f"{args.delete_key}: response {pformat(resp)}")
+        else:
+            log.error(f"{args.delete_key} not found in notion.")
+    elif args.delete_matching_keys:
+        log.info(f"{args.delete_matching_keys}: archive matching requested.")
+        issues = notion_source.get_issues()
+        for key in issues.keys():
+            if key.startswith(args.delete_matching_keys):
+                log.info(f"{key}: archive issue.")
+                notion_source.archive_issue(key)
 
 def github_sync(args, syncer):
     notion_source = NotionSource(args.notion_token, args.notion_database)

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from notion_issues.sources._github import GithubSource
 from notion_issues.sources.jira import JiraSource
+from notion_issues.sources.bitbucket import BitbucketSource
 from notion_issues.sources.notion import NotionSource
 from notion_issues.logger import Logger
 
@@ -14,12 +15,17 @@ log = Logger('notion_issues')
 
 defaults = {
         'jira_token': os.environ.get("JIRA_TOKEN"),
-        'jira_server': None,
-        'jira_project': None,
+        'jira_server': os.environ.get("JIRA_SERVER"),
+        'jira_project': os.environ.get("JIRA_PROJECT"),
         'github_token': os.environ.get("GITHUB_TOKEN"),
-        'github_repo': None,
+        'github_repo': os.environ.get("GITBUH_REPO"),
         'notion_token': os.environ.get("NOTION_TOKEN"),
-        'notion_database': 'Issues',
+        'notion_database': os.environ.get("NOTION_DATABASE"),
+        'bitbucket_app_password': os.environ.get("BITBUCKET_APP_PASSWORD"),
+        'bitbucket_user': os.environ.get("BITBUCKET_USER"),
+        'bitbucket_repo': os.environ.get("BITBUCKET_REPO"),
+        'bitbucket_server': os.environ.get("BITBUCKET_SERVER",
+                                           "https://api.bitbucket.org")
         }
 
 def parse_args():
@@ -67,6 +73,25 @@ def parse_args():
             help=f"Jira Project Key. Default: {defaults['jira_project']}")
     jira_parser.set_defaults(func=jira_sync)
 
+    bitbucket_parser = subparsers.add_parser(
+            'bitbucket', help='Sync Bitbucket Issues')
+    bitbucket_parser.add_argument('-ba', '--bitbucket-app-password', type=str,
+            default=defaults['bitbucket_app_password'],
+            help=f"Bitbucket Token. Default: {defaults['bitbucket_app_password']}")
+    bitbucket_parser.add_argument('-bu', '--bitbucket-user', type=str,
+            default=defaults['bitbucket_user'],
+            help=f"Bitbucket User. Default: {defaults['bitbucket_user']}")
+    bitbucket_parser.add_argument('-bs', '--bitbucket-server', type=str,
+            default=defaults['bitbucket_server'],
+            help=f"Bitbucket Server. Default: {defaults['bitbucket_server']}")
+    bitbucket_parser.add_argument('-br', '--bitbucket-repo', type=str,
+            default=defaults['bitbucket_repo'],
+            help=f"Bitbucket Repo Path. Default: {defaults['bitbucket_repo']}")
+    bitbucket_parser.add_argument('-bp', '--bitbucket-use-path',
+            action='store_true',
+            help=f"Use full repository path for issue key instead of name.")
+    bitbucket_parser.set_defaults(func=bitbucket_sync)
+
     return parser.parse_args()
 
 def github_sync(args, syncer):
@@ -82,6 +107,16 @@ def jira_sync(args, syncer):
     jira_source = JiraSource(args.jira_token, args.jira_project,
                              args.jira_server)
     syncer.sync_sources(notion_source, jira_source, args.jira_project)
+
+def bitbucket_sync(args, syncer):
+    notion_source = NotionSource(args.notion_token, args.notion_database)
+    bitbucket_source = BitbucketSource(
+            args.bitbucket_user, args.bitbucket_app_password,
+            args.bitbucket_repo, args.bitbucket_server)
+    _filter = args.bitbucket_repo
+    if not args.bitbucket_use_path:
+        _filter = args.bitbucket_repo.rsplit('/', 1)[1]
+    syncer.sync_sources(notion_source, bitbucket_source, _filter)
 
 class IssueSync:
 
@@ -110,7 +145,7 @@ class IssueSync:
         threshold = datetime.now(timezone.utc) - timedelta(seconds=60*60*24*31)
 
         for key, issue_dict in source_issues.items():
-            log.debug("{key}: assessing.")
+            log.debug(f"{key}: assessing.")
             if key in notion_issues:
                 log.debug(f"{key}: exists in notion")
                 notion_issue = notion_issues[key]
@@ -148,7 +183,10 @@ class IssueSync:
                         continue
 
                 resp = notion_source.create_issue(key, issue_dict)
+                if 'status' in resp:
+                    log.error(f'failed to create in notion: {pformat(resp)}')
                 log.info(f"{key}: created in notion.")
+                log.debug(f"{key}: {pformat(resp)}")
 
 def validate(args):
     errors = []

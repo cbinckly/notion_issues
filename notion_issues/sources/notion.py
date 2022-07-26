@@ -30,7 +30,7 @@ class NotionSource(IssueSource):
         notion_items = self.notion.database_query(
                 self.notion_database_id, _filter)
 
-        for item in notion_items['results']:
+        for item in notion_items.get('results', []):
             page_details = self.notion.get_page(item['id'])
             page_properties = self.notion.property_values(
                     item['id'], page_details['properties'])
@@ -86,9 +86,6 @@ class NotionSource(IssueSource):
                 "Assignee": {
                     "select": { "name": issue_dict['assignee'] }
                 },
-                "Reporter": {
-                    "select": { "name": issue_dict['reporter'] }
-                },
                 "Labels": {
                     "multi_select": [
                         { "name": i } for i in issue_dict['labels']
@@ -119,6 +116,10 @@ class NotionSource(IssueSource):
         if issue_dict['due_on']:
             properties["Due Date"] = {
                     "date": { "start": issue_dict['due_on'] }
+                }
+        if issue_dict['reporter']:
+            properties["Reporter"] = {
+                    "select": { "name": issue_dict['reporter'] }
                 }
 
         return properties

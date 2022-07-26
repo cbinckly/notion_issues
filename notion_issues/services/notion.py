@@ -103,7 +103,7 @@ class Notion:
     def update_page(self, page_id, properties={}, archived=False):
         url = self.url('page', {'page_id': page_id})
 
-        payload = {'properties': properties}
+        payload = {'properties': properties, 'archived': archived}
 
         response = requests.patch(url, json=payload, headers=self.headers)
         resp_json = response.json()

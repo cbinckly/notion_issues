@@ -1,9 +1,10 @@
+from abc import ABC
 from dateutil import parser
 
 ISO_UTC_FMT = "%Y-%m-%dT%H:%M:%SZ"
 ISO_UTC_MIN_FMT = "%Y-%m-%dT%H:%M:00Z"
 
-class IssueSource():
+class IssueSource(ABC):
 
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("Implement in child.")
@@ -17,8 +18,18 @@ class IssueSource():
             return date.strftime(ISO_UTC_FMT)
         return date.strftime(ISO_UTC_MIN_FMT)
 
-    def get_issues(self):
+    def get_issue(self, _id):
         """
+        :param _id: filter properties for the source.
+        :type _id: int or str
+        :returns: issues dict
+        """
+        raise NotImplementedError("Implement in child.")
+
+    def get_issues(self, *kwargs):
+        """
+        :param kwargs: filter properties for the source.
+        :type kwargs: key=value pairs.
         :returns: issues dict
         """
         raise NotImplementedError("Implement in child.")

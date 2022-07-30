@@ -16,21 +16,52 @@ class GithubSource(IssueSource):
     def __init__(self, github_token, github_repo):
         self.github = Github(github_token)
         self.repo_path = github_repo
+        self.repo = self.github.get_repo(self.repo_path)
 
     def map_unassigned_user(self, user):
         if user == unassigned_user:
             return ""
         return user
 
+    def _issue_to_issue_dict(self, issue):
+
+        if issue.assignee:
+            assignee = issue.assignee.login
+        else:
+            assignee = unassigned_user
+
+        due_on = ""
+        if issue.milestone:
+            due_on = issue.milestone.due_on
+
+        labels = [l.name for l in issue.labels]
+
+        output = {
+              "title": issue.title,
+              "status": issue.state,
+              "assignee": assignee,
+              "reporter": issue.user.login,
+              "labels": labels,
+              "due_on": self.normalize_date(due_on, granularity='minutes'),
+              "opened_on": self.normalize_date(issue.created_at, granularity='minutes'),
+              "updated_on": self.normalize_date(issue.updated_at),
+              "link": issue.html_url
+        }
+
+        return output
+
+    def get_issue(self, _id):
+        issue = self.repo.get_issue(_id)
+        return self._issue_to_issue_dict(issue)
+
     def get_issues(self, since=None):
         output = {}
 
-        repo = self.github.get_repo(self.repo_path)
         get_issues_args = { 'state': 'all' }
         if since:
             get_issues_args['since'] = since
 
-        for issue in repo.get_issues(**get_issues_args):
+        for issue in self.repo.get_issues(**get_issues_args):
             if issue.pull_request and not self.include_pull_requests:
                 continue
 
@@ -39,35 +70,13 @@ class GithubSource(IssueSource):
             else:
                 key = f"{self.repo_path.rsplit('/', 1)[1]}#{issue.number}"
 
-            if issue.assignee:
-                assignee = issue.assignee.login
-            else:
-                assignee = unassigned_user
-
-            due_on = ""
-            if issue.milestone:
-                due_on = issue.milestone.due_on
-
-            labels = [l.name for l in issue.labels]
-
-            output[key] = {
-                  "title": issue.title,
-                  "status": issue.state,
-                  "assignee": assignee,
-                  "reporter": issue.user.login,
-                  "labels": labels,
-                  "due_on": self.normalize_date(due_on, granularity='minutes'),
-                  "opened_on": self.normalize_date(issue.created_at, granularity='minutes'),
-                  "updated_on": self.normalize_date(issue.updated_at),
-                  "link": issue.html_url
-            }
+            output[key] = self._issue_to_issue_dict(issue)
 
         return output
 
     def update_issue(self, key, issue_dict):
         issue_number = int(key.rsplit("#", 1)[1])
-        repo = self.github.get_repo(self.repo_path)
-        issue = repo.get_issue(issue_number)
+        issue = self.repo.get_issue(issue_number)
         result = issue.edit(title=issue_dict['title'],
                             state=issue_dict['status'],
                             assignee=self.map_unassigned_user(

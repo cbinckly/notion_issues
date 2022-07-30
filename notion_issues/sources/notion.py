@@ -20,6 +20,28 @@ class NotionSource(IssueSource):
                     notion_database)
         self.page_id_map = {}
 
+    def _issue_to_issue_dict(self, page_properties):
+        output = {
+              "title": page_properties['Title'],
+              "status": page_properties['Status'],
+              "assignee": page_properties['Assignee'],
+              "reporter": page_properties['Reporter'],
+              "labels": page_properties['Labels'],
+              "due_on": self.normalize_date(
+                                page_properties['Due Date']),
+              "opened_on": self.normalize_date(
+                                page_properties['Opened On']),
+              "updated_on": self.normalize_date(
+                                page_details['last_edited_time']),
+              "link": page_properties['Link'],
+        }
+        return output
+
+    def get_issue(self, _id):
+        page = self.notion.get_page(_id)
+        props = self.notion.property_values(page['id'], page['properties'])
+        return self._issue_dict_to_properties(props)
+
     def get_issues(self, issue_key_filter="", since=None, assignee=None):
         output = {}
         _filters = []
@@ -57,29 +79,12 @@ class NotionSource(IssueSource):
         notion_items = self.notion.database_query(
                 self.notion_database_id, _filter)
 
-        for item in notion_items.get('results', []):
-            page_details = self.notion.get_page(item['id'])
+        for issue in notion_items.get('results', []):
             page_properties = self.notion.property_values(
-                    item['id'], page_details['properties'])
+                    issue['id'], issue['properties'])
             key = page_properties['Issue Key']
-
-
-            output[key] = {
-                  "title": page_properties['Title'],
-                  "status": page_properties['Status'],
-                  "assignee": page_properties['Assignee'],
-                  "reporter": page_properties['Reporter'],
-                  "labels": page_properties['Labels'],
-                  "due_on": self.normalize_date(
-                                    page_properties['Due Date']),
-                  "opened_on": self.normalize_date(
-                                    page_properties['Opened On']),
-                  "updated_on": self.normalize_date(
-                                    page_details['last_edited_time']),
-                  "link": page_properties['Link'],
-            }
-
-            self.page_id_map[key] = item['id']
+            output[key] = self._issue_dict_to_properties(page_properties)
+            self.page_id_map[key] = issue['id']
 
         return output
 

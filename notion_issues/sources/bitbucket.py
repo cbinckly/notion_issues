@@ -37,6 +37,38 @@ class BitbucketSource(IssueSource):
             return ""
         return user
 
+    def _issue_to_issue_dict(self, issue):
+        if issue.data['assignee']:
+            assignee = issue.data['assignee'].get('nickname')
+        else:
+            assignee = unassigned_user
+
+
+        if issue.data['reporter']:
+            reporter = issue.data['reporter'].get('nickname') or ''
+        else:
+            reporter = ""
+
+        output = {
+              "title": issue.data['title'],
+              "status": issue.data['state'],
+              "assignee": assignee,
+              "reporter": reporter,
+              "labels": [issue.data['priority'],
+                         issue.data['type']],
+              "due_on": "",
+              "opened_on": self.normalize_date(
+                            issue.data['created_on'],
+                            granularity='minutes'),
+              "updated_on": self.normalize_date(issue.data['updated_on']),
+              "link": issue.data['links']['html']['href']
+        }
+        return output
+
+    def get_issue(self, _id):
+        issue = self.repo.issues.get(_id)
+        return self._issue_to_issue_dict(issue)
+
     def get_issues(self, since=None):
         query = ""
         if since:
@@ -44,33 +76,8 @@ class BitbucketSource(IssueSource):
 
         output = {}
         for issue in self.repo.issues.each(q=query):
-            if issue.data['assignee']:
-                assignee = issue.data['assignee'].get('nickname')
-            else:
-                assignee = unassigned_user
-
             key = f'{self.repo_name}#{issue.data["id"]}'
-
-            if issue.data['reporter']:
-                reporter = issue.data['reporter'].get('nickname') or ''
-            else:
-                reporter = ""
-
-            output[key] = {
-                  "title": issue.data['title'],
-                  "status": issue.data['state'],
-                  "assignee": assignee,
-                  "reporter": reporter,
-                  "labels": [issue.data['priority'],
-                             issue.data['type']],
-                  "due_on": "",
-                  "opened_on": self.normalize_date(
-                                issue.data['created_on'],
-                                granularity='minutes'),
-                  "updated_on": self.normalize_date(issue.data['updated_on']),
-                  "link": issue.data['links']['html']['href']
-            }
-
+            output[key] = self._issue_to_issue_dict(issue)
         return output
 
     def update_issue(self, key, issue_dict):

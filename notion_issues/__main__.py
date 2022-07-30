@@ -32,6 +32,10 @@ defaults = {
                                            "https://api.bitbucket.org")
         }
 
+def load_since(path):
+    with Path(path).open('r') as f:
+        return parser.parse(f.read())
+
 def parse_args():
     parser = argparse.ArgumentParser(__name__)
     parser.add_argument('-nt', '--notion-token', type=str,
@@ -45,7 +49,7 @@ def parse_args():
             default=defaults['since'], type=date_parser.parse,
             help=f"Sync issues since date time. Default: {defaults['since']}")
     since.add_argument('-sf', '--since-file', metavar='PATH',
-            type=Path, help=f"Sync issues since date time in file.")
+            type=loan_since, help=f"Sync issues since date time in file.")
     parser.add_argument('-v', '--verbose', action='store_true',
             help=f"Turn on verbose logging")
     parser.add_argument('--create-closed', action='store_true',
@@ -189,7 +193,9 @@ def main():
         log.error("args not valid, stopping.")
         sys.exit(1)
     syncer = IssueSync(
-            args.create_closed, args.create_assignee, args.archive_aged)
+            args.create_closed, args.create_assignee,
+            args.since_file or args.since,
+            args.archive_aged)
     args.func(args, syncer)
 
 if __name__ == '__main__':

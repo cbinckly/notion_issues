@@ -6,11 +6,12 @@ class IssueSync:
 
     ignore_fields = ['updated_on']
 
-    def __init__(self, create_closed=False,
-                 create_assignee='', archive_aged=True):
+    def __init__(self, create_closed=False, create_assignee='',
+            since="", archive_aged=True):
         self.create_closed = create_closed
         self.create_assignee = create_assignee
         self.archive_aged = archive_aged
+        self.since = since
 
     def issues_equal(self, notion_issue, other_issue):
         notion_filtered = {k: v for k, v in notion_issue.items()
@@ -19,14 +20,43 @@ class IssueSync:
                                if k not in self.ignore_fields}
         return sorted(notion_filtered.items()) == sorted(other_filtered.items())
 
+    def _source_kwargs(self):
+        kwargs = {}
+        if self.create_assignee:
+            kwargs['assignee'] = self.create_assignee
+        if self.since:
+            kwargs['since'] = since
+        return kwargs
+
     def sync_sources(self, notion_source, other_source, issue_key_filter=""):
-        source_issues = other_source.get_issues()
-        notion_issues = notion_source.get_issues(issue_key_filter)
+        source_kwargs = self._source_kwargs()
+        source_issues = other_source.get_issues(**source_kwargs)
+        notion_issues = notion_source.get_issues(issue_key_filter, since=self.since)
+
+        threshold = datetime.now(timezone.utc) - timedelta(seconds=60*60*24*31)
+
+        missing_notion = set(source_issues.keys()) - set(notion_issues.keys())
+        missing_other = set(notion_issues.keys()) - set(source_issues.keys())
+
+        log.debug(f"notion_source missing keys: {missing_notion}")
+        log.debug(f"other_source missing keys: {missing_other}")
+
+        for key in missing_notion:
+            _id = notion_source.key_to_id(key)
+            if _id:
+                issue = notion_source.get_issue(_id)
+                if issue:
+                    notion_issues[key] = issue
+
+        for key in missing_other:
+            _id = other_source.key_to_id(key)
+            if _id:
+                issue = other_source.get_issue(_id)
+                if issue:
+                    other_issues[key] = issue
 
         log.info(f"sync {notion_source}({issue_key_filter}) and {other_source}")
         log.debug(f"notion({len(notion_issues)}), other({len(source_issues)})")
-
-        threshold = datetime.now(timezone.utc) - timedelta(seconds=60*60*24*31)
 
         for key, issue_dict in source_issues.items():
             log.debug(f"{key}: assessing.")

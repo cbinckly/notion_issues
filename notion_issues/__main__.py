@@ -1,8 +1,9 @@
 import os
 import sys
 import argparse
+from pathlib import Path
 from pprint import pprint, pformat
-from dateutil import parser
+from dateutil import parser as date_parser
 from datetime import datetime, timedelta, timezone
 
 from notion_issues import IssueSync
@@ -13,8 +14,10 @@ from notion_issues.sources.notion import NotionSource
 from notion_issues.logger import Logger
 
 log = Logger('notion_issues')
+THIRTY_DAYS = timedelta(seconds=60*60*24*30)
 
 defaults = {
+        'since': datetime.now(timezone.utc) - THIRTY_DAYS,
         'jira_token': os.environ.get("JIRA_TOKEN"),
         'jira_server': os.environ.get("JIRA_SERVER"),
         'jira_project': os.environ.get("JIRA_PROJECT"),
@@ -37,6 +40,12 @@ def parse_args():
     parser.add_argument('-nd', '--notion-database', type=str,
             default=defaults['notion_database'],
             help=f"Notion database ID. Default: {defaults['notion_database']}")
+    since = parser.add_mutually_exclusive_group(required=False)
+    since.add_argument('-s', '--since', metavar='YYYYmmddTHHMMSS',
+            default=defaults['since'], type=date_parser.parse,
+            help=f"Sync issues since date time. Default: {defaults['since']}")
+    since.add_argument('-sf', '--since-file', metavar='PATH',
+            type=Path, help=f"Sync issues since date time in file.")
     parser.add_argument('-v', '--verbose', action='store_true',
             help=f"Turn on verbose logging")
     parser.add_argument('--create-closed', action='store_true',

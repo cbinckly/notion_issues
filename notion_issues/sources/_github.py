@@ -54,12 +54,14 @@ class GithubSource(IssueSource):
         issue = self.repo.get_issue(_id)
         return self._issue_to_issue_dict(issue)
 
-    def get_issues(self, since=None):
+    def get_issues(self, since=None, assignee=None):
         output = {}
 
         get_issues_args = { 'state': 'all' }
         if since:
             get_issues_args['since'] = since
+        if assignee:
+            get_issues_args['assignee'] = assignee
 
         for issue in self.repo.get_issues(**get_issues_args):
             if issue.pull_request and not self.include_pull_requests:

@@ -69,10 +69,12 @@ class BitbucketSource(IssueSource):
         issue = self.repo.issues.get(_id)
         return self._issue_to_issue_dict(issue)
 
-    def get_issues(self, since=None):
+    def get_issues(self, since=None, assignee=None):
         query = ""
         if since:
             query = f"updated_on > {since.strftime('%Y-%m-%dT%H:%M:%S')}"
+        if assignee:
+            query = f'{query} and assignee.nickname = "{assignee}"'
 
         output = {}
         for issue in self.repo.issues.each(q=query):

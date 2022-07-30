@@ -49,12 +49,14 @@ class JiraSource(IssueSource):
         issue = jira.issue(_id)
         return self._issue_to_issue_dict(issue)
 
-    def get_issues(self, since=None):
+    def get_issues(self, since=None, assignee=None):
         output = {}
         query = f'project={self.project}'
         if since:
             since_str = since.strftime(JIRA_TIMEFMT)
             query = f'{query} and (updated > {since_str} or created > (since_str)'
+        if assignee:
+            query = f'{query} and assignee = {assignee}'
 
         for issue in self.jira.search_issues(query):
             output[issue.key] = self._issue_to_issue_dict(issue)

@@ -10,7 +10,11 @@ handlers:
     formatter: simple
     stream: ext://sys.stdout
 loggers:
-  simpleExample:
+  notion_issues:
+    level: INFO
+    handlers: [console]
+    propagate: no
+  aio_api_sm:
     level: INFO
     handlers: [console]
     propagate: no

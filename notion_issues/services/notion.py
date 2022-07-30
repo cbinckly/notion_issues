@@ -1,8 +1,13 @@
 import os
+import asyncio
 import urllib
 import requests
 import argparse
 from pprint import pformat, pprint
+
+from notion_issues.logger import Logger
+
+log = Logger(__name__)
 
 defaults = {
         'notion_token': os.environ.get("NOTION_TOKEN"),
@@ -155,3 +160,40 @@ class Notion:
             _properties[key] = value
 
         return _properties
+
+def test_page_fetch():
+    import os
+    from pprint import pprint
+    from datetime import datetime
+
+    now = datetime.now()
+    notion = Notion(os.environ.get("NOTION_TOKEN"))
+    dbid = notion.database_id_for_name("Project Issues")
+    pages = notion.database_query(dbid, "")
+    page_info = pages['results'][0]
+    page_details = notion.get_page(page_info['id'])
+    page_details['properties'] = notion.property_values(
+            page_info['id'], page_details['properties'])
+    pprint(page_details)
+    print(f"time: {datetime.now() - now} seconds")
+
+def test_db_fetch():
+    import os
+    from pprint import pprint
+    from datetime import datetime
+
+    now = datetime.now()
+    notion = Notion(os.environ.get("NOTION_TOKEN"))
+    dbid = notion.database_id_for_name("Issues")
+    pages = notion.database_query(dbid, "")
+    full_pages = []
+    for page in pages['results']:
+        page['properties'] = notion.property_values(
+                page['id'], page['properties'])
+    pprint(pages)
+    print(f"time: {datetime.now() - now} seconds")
+
+if __name__ == '__main__':
+    # test_page_fetch()
+    test_db_fetch()
+

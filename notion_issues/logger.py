@@ -19,7 +19,7 @@ class Logger():
     def __getattr__(self, attr):
         if hasattr(self.log, attr):
             return getattr(self.log, attr)
-        raise AttributeError(f'{self.__class__.__name__}.{attr} doesnt exist')
+        raise AttributeError(f'{self.log.__class__.__name__}.{attr} doesnt exist')
 
     def verbose(self):
         self.log.setLevel(logging.DEBUG)

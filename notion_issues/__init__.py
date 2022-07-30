@@ -1,5 +1,9 @@
 from dateutil import parser
+from datetime import datetime, timedelta, timezone
 
+from notion_issues.logger import Logger
+
+log = Logger('notion_issues.issue_sync')
 unassigned_user = "unassigned"
 
 class IssueSync:
@@ -25,7 +29,7 @@ class IssueSync:
         if self.create_assignee:
             kwargs['assignee'] = self.create_assignee
         if self.since:
-            kwargs['since'] = since
+            kwargs['since'] = self.since
         return kwargs
 
     def sync_sources(self, notion_source, other_source, issue_key_filter=""):
@@ -53,7 +57,7 @@ class IssueSync:
             if _id:
                 issue = other_source.get_issue(_id)
                 if issue:
-                    other_issues[key] = issue
+                    source_issues[key] = issue
 
         log.info(f"sync {notion_source}({issue_key_filter}) and {other_source}")
         log.debug(f"notion({len(notion_issues)}), other({len(source_issues)})")

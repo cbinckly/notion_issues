@@ -9,6 +9,16 @@ class IssueSource(ABC):
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("Implement in child.")
 
+    def key_to_id(self, key):
+        """Convert an issue key to and id.
+
+        :param key: notion issue key
+        :type key: str
+        :returns: issue id.
+        :rtype: str, int
+        """
+        raise NotImplementedError('Implement in child.')
+
     def normalize_date(self, date, granularity='seconds'):
         if not date:
             return ""

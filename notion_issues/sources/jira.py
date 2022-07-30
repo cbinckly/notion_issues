@@ -17,6 +17,9 @@ class JiraSource(IssueSource):
                          token_auth=jira_token)
         self.project = jira_project
 
+    def key_to_id(self, key):
+        return key
+
     def map_unassigned_user(self, user):
         if user == unassigned_user:
             return None

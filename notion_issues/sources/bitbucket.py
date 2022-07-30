@@ -32,6 +32,9 @@ class BitbucketSource(IssueSource):
         self.session = requests.Session()
         self.session.auth = (self.user, self.password)
 
+    def key_to_id(self, key):
+        return int(key.split('#')[-1])
+
     def map_unassigned_user(self, user):
         if user == unassigned_user:
             return ""

@@ -18,6 +18,9 @@ class GithubSource(IssueSource):
         self.repo_path = github_repo
         self.repo = self.github.get_repo(self.repo_path)
 
+    def key_to_id(self, key):
+        return int(key.split('#')[-1])
+
     def map_unassigned_user(self, user):
         if user == unassigned_user:
             return ""

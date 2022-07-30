@@ -13,7 +13,7 @@ class BitbucketSource(IssueSource):
     closed_statuses = ['closed', 'resolved']
 
     def __init__(self, bitbucket_user, bitbucket_app_pass,
-                 bitbucket_repo, bitbucket_server):
+                 bitbucket_repo, bitbucket_server, use_path=False):
         self.bitbucket = Cloud(username=bitbucket_user,
                                password=bitbucket_app_pass,
                                cloud=True)
@@ -21,6 +21,7 @@ class BitbucketSource(IssueSource):
         self.password = bitbucket_app_pass
         self.repo_path = bitbucket_repo
         self.server = bitbucket_server
+        self.use_path = use_path
         try:
             self.workspace_slug, self.repo_name = self.repo_path.split('/')
         except:
@@ -31,6 +32,14 @@ class BitbucketSource(IssueSource):
         self.repo = self.workspace.repositories.get(self.repo_name)
         self.session = requests.Session()
         self.session.auth = (self.user, self.password)
+
+    def id_to_key(self, _id):
+        if self.use_path:
+            key = f"{self.repo_path}#{_id}"
+        else:
+            key = f"{self.repo_path.split('#')[-1]}#{_id}"
+
+        return key
 
     def key_to_id(self, key):
         return int(key.split('#')[-1])
@@ -81,7 +90,7 @@ class BitbucketSource(IssueSource):
 
         output = {}
         for issue in self.repo.issues.each(q=query):
-            key = f'{self.repo_name}#{issue.data["id"]}'
+            key = self.id_to_key(issue.data["id"])
             output[key] = self._issue_to_issue_dict(issue)
         return output
 

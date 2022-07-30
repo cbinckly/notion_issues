@@ -17,6 +17,9 @@ class JiraSource(IssueSource):
                          token_auth=jira_token)
         self.project = jira_project
 
+    def id_to_key(self, _id):
+        return _id
+
     def key_to_id(self, key):
         return key
 
@@ -62,7 +65,8 @@ class JiraSource(IssueSource):
             query = f'{query} and assignee = {assignee}'
 
         for issue in self.jira.search_issues(query):
-            output[issue.key] = self._issue_to_issue_dict(issue)
+            key = self.id_to_key(issue.key)
+            output[key] = self._issue_to_issue_dict(issue)
         return output
 
     def update_issue(self, key, issue_dict):

@@ -8,18 +8,25 @@ from notion_issues.sources import IssueSource, ISO_UTC_FMT
 
 class GithubSource(IssueSource):
 
-    use_path = False
     include_pull_requests = False
 
     closed_statuses = ['closed']
 
-    def __init__(self, github_token, github_repo):
+    def __init__(self, github_token, github_repo, use_path=False):
         self.github = Github(github_token)
         self.repo_path = github_repo
         self.repo = self.github.get_repo(self.repo_path)
+        self.use_path = False
 
     def key_to_id(self, key):
         return int(key.split('#')[-1])
+
+    def id_to_key(self, _id):
+        if self.use_path:
+            key = f"{self.repo_path}#{_id}"
+        else:
+            key = f"{self.repo_path.rsplit('/', 1)[-1]}#{_id}"
+        return key
 
     def map_unassigned_user(self, user):
         if user == unassigned_user:
@@ -46,7 +53,8 @@ class GithubSource(IssueSource):
               "reporter": issue.user.login,
               "labels": labels,
               "due_on": self.normalize_date(due_on, granularity='minutes'),
-              "opened_on": self.normalize_date(issue.created_at, granularity='minutes'),
+              "opened_on": self.normalize_date(
+                    issue.created_at, granularity='minutes'),
               "updated_on": self.normalize_date(issue.updated_at),
               "link": issue.html_url
         }
@@ -61,6 +69,7 @@ class GithubSource(IssueSource):
         output = {}
 
         get_issues_args = { 'state': 'all' }
+
         if since:
             get_issues_args['since'] = since
         if assignee:
@@ -70,10 +79,7 @@ class GithubSource(IssueSource):
             if issue.pull_request and not self.include_pull_requests:
                 continue
 
-            if self.use_path:
-                key = f"{self.repo_path}#{issue.number}"
-            else:
-                key = f"{self.repo_path.rsplit('/', 1)[1]}#{issue.number}"
+            key = self.id_to_key(issue.id)
 
             output[key] = self._issue_to_issue_dict(issue)
 

@@ -9,6 +9,16 @@ class IssueSource(ABC):
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("Implement in child.")
 
+    def id_to_key(self, _id):
+        """Convert and ID to an issue key.
+
+        :param _id: source issue id
+        :type _id: int or str
+        :returns: issue key
+        :rtype: str
+        """
+        raise NotImplementedError('Implement in child.')
+
     def key_to_id(self, key):
         """Convert an issue key to and id.
 

@@ -20,6 +20,12 @@ class NotionSource(IssueSource):
                     notion_database)
         self.page_id_map = {}
 
+    def id_to_key(self, _id):
+        for issue_key, page_id in self.page_id_map.values():
+            if page_id == _id:
+                return issue_key
+        return ""
+
     def key_to_id(self, key):
         return self.page_id_map.get(key)
 

@@ -2,7 +2,8 @@ import requests
 from pprint import pprint
 from atlassian.bitbucket import Cloud
 
-from notion_issues import IssueSource, unassigned_user
+from notion_issues import unassigned_user
+from notion_issues.sources import IssueSource
 from notion_issues.logger import Logger
 
 log = Logger('notion_issues.sources.bitbucket')
@@ -36,9 +37,13 @@ class BitbucketSource(IssueSource):
             return ""
         return user
 
-    def get_issues(self):
+    def get_issues(self, since=None):
+        query = ""
+        if since:
+            query = f"updated_on > {since.strftime('%Y-%m-%dT%H:%M:%S')}"
+
         output = {}
-        for issue in self.repo.issues.each():
+        for issue in self.repo.issues.each(q=query):
             if issue.data['assignee']:
                 assignee = issue.data['assignee'].get('nickname')
             else:

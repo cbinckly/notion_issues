@@ -2,9 +2,11 @@ import os
 import sys
 import urllib
 import requests
+from datetime import datetime, timedelta, timezone
 from pprint import pformat, pprint
 
-from notion_issues import IssueSource, unassigned_user
+from notion_issues import unassigned_user
+from notion_issues.sources import IssueSource
 from notion_issues.services.notion import Notion
 
 class NotionSource(IssueSource):
@@ -18,15 +20,40 @@ class NotionSource(IssueSource):
                     notion_database)
         self.page_id_map = {}
 
-    def get_issues(self, issue_key_filter=""):
+    def get_issues(self, issue_key_filter="", since=None, assignee=None):
         output = {}
-        _filter = {}
+        _filters = []
+
         if issue_key_filter:
-            _filter = { "property": "Issue Key",
+            _filters.append({ "property": "Issue Key",
                               "rich_text": {
                                   "starts_with": issue_key_filter
                               }
-                      }
+                      })
+
+        if since:
+            _filters.append({
+                    "timestamp": "last_edited_time",
+                    "last_edited_time": {
+                        "after": self.normalize_date(since)
+                    }
+                })
+
+        if assignee:
+            _filters.append({
+                    "property": "Assignee",
+                    "select": {
+                        "equals": assignee
+                    }
+                })
+
+        _filter = {}
+        if _filters:
+            if len(_filters) > 1:
+                _filter = { "and": _filters }
+            else:
+                _filter = _filters[0]
+
         notion_items = self.notion.database_query(
                 self.notion_database_id, _filter)
 
@@ -130,6 +157,7 @@ class NotionSource(IssueSource):
 if __name__ == '__main__':
     notion_token = os.environ.get("NOTION_TOKEN")
     notion_database = sys.argv[1]
+    since = datetime.now(timezone.utc) - timedelta(seconds=60*60*24*5)
 
     source = NotionSource(notion_token, notion_database)
-    pprint(source.get_issues())
+    pprint(source.get_issues(since=since))

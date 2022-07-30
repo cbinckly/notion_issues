@@ -3,7 +3,8 @@ import sys
 from pprint import pprint
 from github import Github
 
-from notion_issues import IssueSource, unassigned_user, ISO_UTC_FMT
+from notion_issues import unassigned_user
+from notion_issues.sources import IssueSource, ISO_UTC_FMT
 
 class GithubSource(IssueSource):
 
@@ -21,12 +22,15 @@ class GithubSource(IssueSource):
             return ""
         return user
 
-    def get_issues(self):
+    def get_issues(self, since=None):
         output = {}
 
         repo = self.github.get_repo(self.repo_path)
+        get_issues_args = { 'state': 'all' }
+        if since:
+            get_issues_args['since'] = since
 
-        for issue in repo.get_issues(state='all'):
+        for issue in repo.get_issues(**get_issues_args):
             if issue.pull_request and not self.include_pull_requests:
                 continue
 

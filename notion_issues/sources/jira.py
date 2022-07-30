@@ -1,9 +1,11 @@
 import jira
 from jira.exceptions import JIRAError
 
-from notion_issues import IssueSource, unassigned_user
+from notion_issues import unassigned_user
+from notion_issues.sources import IssueSource
 from notion_issues.logger import Logger
 
+JIRA_TIMEFMT = "%Y-%m-%d %H:%M"
 log = Logger('notion_issues.sources.jira')
 
 class JiraSource(IssueSource):
@@ -20,10 +22,15 @@ class JiraSource(IssueSource):
             return None
         return user
 
-    def get_issues(self):
+    def get_issues(self, since=None):
+        if since
         output = {}
-        issues = self.jira.search_issues(f'project={self.project}')
-        for issue in issues:
+        query = f'project={self.project}'
+        if since:
+            since_str = since.strftime(JIRA_TIMEFMT)
+            query = f'{query} and (updated > {since_str} or created > (since_str)')
+
+        for issue in self.jira.search_issues(query):
             if issue.fields.assignee:
                 assignee = issue.fields.assignee.name
             else:

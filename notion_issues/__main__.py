@@ -49,7 +49,7 @@ def parse_args():
             default=defaults['since'], type=date_parser.parse,
             help=f"Sync issues since date time. Default: {defaults['since']}")
     since.add_argument('-sf', '--since-file', metavar='PATH',
-            type=loan_since, help=f"Sync issues since date time in file.")
+            type=load_since, help=f"Sync issues since date time in file.")
     parser.add_argument('-v', '--verbose', action='store_true',
             help=f"Turn on verbose logging")
     parser.add_argument('--create-closed', action='store_true',

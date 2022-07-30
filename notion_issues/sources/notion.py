@@ -23,7 +23,7 @@ class NotionSource(IssueSource):
     def key_to_id(self, key):
         return self.page_id_map.get(key)
 
-    def _issue_to_issue_dict(self, page_properties):
+    def _issue_to_issue_dict(self, page, page_properties):
         output = {
               "title": page_properties['Title'],
               "status": page_properties['Status'],
@@ -35,7 +35,7 @@ class NotionSource(IssueSource):
               "opened_on": self.normalize_date(
                                 page_properties['Opened On']),
               "updated_on": self.normalize_date(
-                                page_details['last_edited_time']),
+                                page['last_edited_time']),
               "link": page_properties['Link'],
         }
         return output
@@ -44,7 +44,7 @@ class NotionSource(IssueSource):
         page = self.notion.get_page(_id)
         props = self.notion.property_values(page['id'], page['properties'])
         self.page_id_map[props['Issue Key']] = page['id']
-        return self._issue_dict_to_properties(props)
+        return self._issue_to_issue_dict(page, props)
 
     def get_issues(self, issue_key_filter="", since=None, assignee=None):
         output = {}
@@ -87,7 +87,7 @@ class NotionSource(IssueSource):
             page_properties = self.notion.property_values(
                     issue['id'], issue['properties'])
             key = page_properties['Issue Key']
-            output[key] = self._issue_dict_to_properties(page_properties)
+            output[key] = self._issue_to_issue_dict(issue, page_properties)
             self.page_id_map[key] = issue['id']
 
         return output

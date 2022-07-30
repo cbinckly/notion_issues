@@ -30,7 +30,7 @@ defaults = {
         }
 
 def parse_args():
-    parser = argparse.ArgumentParser(__name__)
+    parser = argparse.ArgumentParser('notion_issues')
     parser.add_argument('-nt', '--notion-token', type=str,
             default=defaults['notion_token'],
             help=f"Notion Token. Default: {defaults['notion_token']}")

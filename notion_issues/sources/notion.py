@@ -27,7 +27,22 @@ class NotionSource(IssueSource):
         return ""
 
     def key_to_id(self, key):
-        return self.page_id_map.get(key)
+        if key in self.page_id_map:
+            return self.page_id_map.get(key)
+
+        _filter = {
+                "property": "Issue Key",
+                "rich_text": {
+                        "equals": key
+                    }
+                }
+        results = self.notion.database_query(self.notion_database_id, _filter)
+        pages = results.get('results')
+        if pages:
+            return pages[0]['id']
+
+        return None
+
 
     def _issue_to_issue_dict(self, page, page_properties):
         output = {

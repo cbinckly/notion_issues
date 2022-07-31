@@ -13,7 +13,8 @@ setup(
         'pygithub',
         'jira',
         'python-dateutil',
-        'pyyaml'
+        'pyyaml',
+        'atlassian-python-api',
     ],
     entry_points={
         'console_scripts': [

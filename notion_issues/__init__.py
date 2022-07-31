@@ -1,67 +1,22 @@
+from pprint import pformat
 from dateutil import parser
+from datetime import datetime, timedelta, timezone
 
-ISO_UTC_FMT = "%Y-%m-%dT%H:%M:%SZ"
-ISO_UTC_MIN_FMT = "%Y-%m-%dT%H:%M:00Z"
+from notion_issues.logger import Logger
+
+log = Logger('notion_issues.issue_sync')
 unassigned_user = "unassigned"
-
-def get_intermediate_representation_template():
-    return { "<issue_key>": {
-                  "issue_key": "",
-                  "title": "",
-                  "status": "",
-                  "assignee": "",
-                  "reporter": "",
-                  "labels": [],
-                  "due_on": "",
-                  "opened_on": "",
-                  "closed_on": "",
-                  "updated_on": "",
-                  "link": ""
-              }
-           }
-
-class IssueSource():
-
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError("Implement in child.")
-
-    def normalize_date(self, date, granularity='seconds'):
-        if not date:
-            return ""
-        if isinstance(date, str):
-            date = parser.isoparse(date)
-        if granularity == 'seconds':
-            return date.strftime(ISO_UTC_FMT)
-        return date.strftime(ISO_UTC_MIN_FMT)
-
-    def get_issues(self):
-        """
-        :returns: issues dict
-        """
-        raise NotImplementedError("Implement in child.")
-
-    def update_issue(self, issue_key, issues_dict):
-        """
-        :param issue_key: unique issue key.
-        :type issue_key: str
-        :param issues_dict: issues dict containing issues to update.
-        :type issues_dict: dict
-        """
-        raise NotImplementedError("Implement in child.")
-
-    def __str__(self):
-        raise NotImplementedError("Implement in child.")
-
 
 class IssueSync:
 
-    ignore_fields = ['updated_on']
+    ignore_fields = ['updated_on', 'opened_on', 'reporter']
 
-    def __init__(self, create_closed=False,
-                 create_assignee='', archive_aged=True):
+    def __init__(self, create_closed=False, create_assignee='',
+            since="", archive_aged=True):
         self.create_closed = create_closed
         self.create_assignee = create_assignee
         self.archive_aged = archive_aged
+        self.since = since
 
     def issues_equal(self, notion_issue, other_issue):
         notion_filtered = {k: v for k, v in notion_issue.items()
@@ -70,14 +25,45 @@ class IssueSync:
                                if k not in self.ignore_fields}
         return sorted(notion_filtered.items()) == sorted(other_filtered.items())
 
+    def _source_kwargs(self):
+        kwargs = {}
+        if self.create_assignee:
+            kwargs['assignee'] = self.create_assignee
+        if self.since:
+            kwargs['since'] = self.since
+        return kwargs
+
     def sync_sources(self, notion_source, other_source, issue_key_filter=""):
-        source_issues = other_source.get_issues()
-        notion_issues = notion_source.get_issues(issue_key_filter)
+        source_kwargs = self._source_kwargs()
+        source_issues = other_source.get_issues(**source_kwargs)
+        notion_issues = notion_source.get_issues(issue_key_filter, since=self.since)
+
+        threshold = datetime.now(timezone.utc) - timedelta(seconds=60*60*24*31)
+
+        missing_notion = set(source_issues.keys()) - set(notion_issues.keys())
+        missing_other = set(notion_issues.keys()) - set(source_issues.keys())
+
+        log.debug(f"notion_source missing keys: {missing_notion}")
+        log.debug(f"other_source missing keys: {missing_other}")
+
+        for key in missing_notion:
+            _id = notion_source.key_to_id(key)
+            if _id:
+                issue = notion_source.get_issue(_id)
+                if issue:
+                    notion_issues[key] = issue
+
+        for key in missing_other:
+            _id = other_source.key_to_id(key)
+            if _id:
+                issue = other_source.get_issue(_id)
+                if issue:
+                    source_issues[key] = issue
 
         log.info(f"sync {notion_source}({issue_key_filter}) and {other_source}")
         log.debug(f"notion({len(notion_issues)}), other({len(source_issues)})")
-
-        threshold = datetime.now(timezone.utc) - timedelta(seconds=60*60*24*31)
+        log.debug(f"Notion: {pformat(notion_issues)}")
+        log.debug(f"Other: {pformat(source_issues)}")
 
         for key, issue_dict in source_issues.items():
             log.debug(f"{key}: assessing.")
@@ -92,7 +78,7 @@ class IssueSync:
                         log.info(f"{key}: notion updated successfully.")
                     else:
                         log.debug(f"{key}: notion source is newer")
-                        log.debug(f"{key}: updating with {pformat(issue_dict)}")
+                        log.debug(f"{key}: updating with {pformat(notion_issue)}")
                         other_source.update_issue(key, notion_issue)
                         log.info(f"{key}: other source updated successfully.")
                 else:

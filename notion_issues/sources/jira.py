@@ -1,9 +1,11 @@
 import jira
 from jira.exceptions import JIRAError
 
-from notion_issues import IssueSource, unassigned_user
+from notion_issues import unassigned_user
+from notion_issues.sources import IssueSource
 from notion_issues.logger import Logger
 
+JIRA_TIMEFMT = "%Y-%m-%d %H:%M"
 log = Logger('notion_issues.sources.jira')
 
 class JiraSource(IssueSource):
@@ -15,35 +17,56 @@ class JiraSource(IssueSource):
                          token_auth=jira_token)
         self.project = jira_project
 
+    def id_to_key(self, _id):
+        return _id
+
+    def key_to_id(self, key):
+        return key
+
     def map_unassigned_user(self, user):
         if user == unassigned_user:
             return None
         return user
 
-    def get_issues(self):
+    def _issue_to_issue_dict(self, issue):
+        if issue.fields.assignee:
+            assignee = issue.fields.assignee.name
+        else:
+            assignee = unassigned_user
+
+        output = {
+              "title": issue.fields.summary,
+              "status": issue.fields.status.name,
+              "assignee": assignee,
+              "reporter": issue.fields.creator.key,
+              "labels": [issue.fields.priority.name,
+                         issue.fields.issuetype.name],
+              "due_on": self.normalize_date(
+                            issue.fields.duedate, granularity='minutes'),
+              "opened_on": self.normalize_date(
+                            issue.fields.created, granularity='minutes'),
+              "updated_on": self.normalize_date(issue.fields.updated),
+              "link": issue.permalink()
+        }
+
+        return output
+
+    def get_issue(self, _id):
+        issue = jira.issue(_id)
+        return self._issue_to_issue_dict(issue)
+
+    def get_issues(self, since=None, assignee=None):
         output = {}
-        issues = self.jira.search_issues(f'project={self.project}')
-        for issue in issues:
-            if issue.fields.assignee:
-                assignee = issue.fields.assignee.name
-            else:
-                assignee = unassigned_user
+        query = f'project={self.project}'
+        if since:
+            since_str = since.strftime(JIRA_TIMEFMT)
+            query = f'{query} and (updated > {since_str} or created > (since_str)'
+        if assignee:
+            query = f'{query} and assignee = {assignee}'
 
-            output[issue.key] = {
-                  "title": issue.fields.summary,
-                  "status": issue.fields.status.name,
-                  "assignee": assignee,
-                  "reporter": issue.fields.creator.key,
-                  "labels": [issue.fields.priority.name,
-                             issue.fields.issuetype.name],
-                  "due_on": self.normalize_date(
-                                issue.fields.duedate, granularity='minutes'),
-                  "opened_on": self.normalize_date(
-                                issue.fields.created, granularity='minutes'),
-                  "updated_on": self.normalize_date(issue.fields.updated),
-                  "link": issue.permalink()
-            }
-
+        for issue in self.jira.search_issues(query):
+            key = self.id_to_key(issue.key)
+            output[key] = self._issue_to_issue_dict(issue)
         return output
 
     def update_issue(self, key, issue_dict):

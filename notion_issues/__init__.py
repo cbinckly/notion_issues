@@ -1,3 +1,4 @@
+from pprint import pformat
 from dateutil import parser
 from datetime import datetime, timedelta, timezone
 
@@ -8,7 +9,7 @@ unassigned_user = "unassigned"
 
 class IssueSync:
 
-    ignore_fields = ['updated_on']
+    ignore_fields = ['updated_on', 'opened_on', 'reporter']
 
     def __init__(self, create_closed=False, create_assignee='',
             since="", archive_aged=True):
@@ -61,6 +62,8 @@ class IssueSync:
 
         log.info(f"sync {notion_source}({issue_key_filter}) and {other_source}")
         log.debug(f"notion({len(notion_issues)}), other({len(source_issues)})")
+        log.debug(f"Notion: {pformat(notion_issues)}")
+        log.debug(f"Other: {pformat(source_issues)}")
 
         for key, issue_dict in source_issues.items():
             log.debug(f"{key}: assessing.")
@@ -75,7 +78,7 @@ class IssueSync:
                         log.info(f"{key}: notion updated successfully.")
                     else:
                         log.debug(f"{key}: notion source is newer")
-                        log.debug(f"{key}: updating with {pformat(issue_dict)}")
+                        log.debug(f"{key}: updating with {pformat(notion_issue)}")
                         other_source.update_issue(key, notion_issue)
                         log.info(f"{key}: other source updated successfully.")
                 else:

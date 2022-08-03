@@ -26,6 +26,7 @@ class AioNotion:
                 'pages': 'pages',
                 'page': 'pages/{page_id}',
                 'page.property': 'pages/{page_id}/properties/{property_id}',
+                'comments': 'comments'
             }
 
     limit_per_host = 10 # notion rate limits at 3 requests/second
@@ -51,7 +52,7 @@ class AioNotion:
     def url(self, name, path_params={}, uri_params={}):
         uri_path = self.paths[name].format(**path_params)
         if uri_params:
-            encoded_params = urllib.urlencode(uri_params)
+            encoded_params = urllib.parse.urlencode(uri_params)
             uri_path = f"{uri_path}?{encoded_params}"
         #return f"{self.api_base}{uri_path}"
         return f"/v1/{uri_path}"
@@ -107,7 +108,7 @@ class AioNotion:
 
         return resp_json
 
-    async def get_page(self, page_id, props=False):
+    async def get_page(self, page_id, props=False, comments=False):
         url = self.url('page', {'page_id': page_id})
 
         resp_json = await self._request_manager.request('get', url)
@@ -115,6 +116,15 @@ class AioNotion:
             pf = PropertyFetcher(self)
             await pf.fetch_properties(page_id, resp_json['properties'])
             resp_json['properties'] = pf.properties
+        if comments:
+            resp_json['comments'] = await self.get_comments(page_id)
+
+        return resp_json
+
+    async def get_comments(self, page_id):
+        url = self.url('comments', {}, {'block_id': page_id})
+
+        resp_json = await self._request_manager.request('get', url)
 
         return resp_json
 
@@ -172,83 +182,11 @@ class AioNotion:
 
         return _properties
 
-class PropertyFetcher:
-
-    def __init__(self, notion):
-        self.notion = notion
-        self.properties = {}
-
-    async def _consume_queue(self, q):
-        try:
-            while True:
-                page_id, property_name, property_id = await q.get()
-                if not (page_id and property_id):
-                    return
-                log.debug(f"{page_id}: get property {property_id}")
-                prop = await self.notion.get_property(page_id, property_id)
-                self.properties[property_name] = prop
-        except Exception as e:
-            log.error(f"_property_queue_handler failed: {e}")
-
-    async def _fetch_properties(self, page_id, properties):
-        q = asyncio.Queue()
-        concurrency = len(properties)
-        for name, _id in properties.items():
-            await q.put((page_id, name, _id['id']))
-        for _ in range(0, concurrency):
-            await q.put((None, None, None))
-
-        executors = [self._consume_queue(q) for _ in range(0, concurrency)]
-        await asyncio.gather(*executors)
-
-    async def fetch_properties(self, page_id, properties):
-        await self._fetch_properties(page_id, properties)
-        return self.properties
-
-class DatabaseFetcher:
-
-    def __init__(self, notion):
-        self.notion = notion
-        self.pages = []
-
-    async def _consume_queue(self, q):
-        try:
-            while True:
-                page = await q.get()
-                if not page:
-                    return
-                log.debug(f"{page['id']}: call property fetcher")
-                property_fetcher = PropertyFetcher(self.notion)
-                properties = await property_fetcher.fetch_properties(
-                        page['id'], page['properties'])
-                page['properties'] = properties
-                self.pages.append(page)
-        except Exception as e:
-            log.error(f"_consume_queue failed: {e}")
-
-    async def _fetch_database(self, database_id, _filter):
-        q = asyncio.Queue()
-        concurrency = 10
-
-        pages = await self.notion.database_query(database_id, _filter)
-        if not pages.get('results'):
-            log.info(f"{pformat(pages)} entries in DB")
-        for page in pages.get('results', []):
-            await q.put(page)
-        for _ in range(0, concurrency):
-            await q.put(None)
-
-        executors = [self._consume_queue(q) for _ in range(0, concurrency)]
-        await asyncio.gather(*executors)
-
-    async def fetch_database(self, database_id, _filter):
-        await self._fetch_database(database_id, _filter)
-        return self.pages
-
 async def test_db_fetch():
     import os
     from pprint import pprint
     from datetime import datetime
+    from notion_issues.helpers.notion import DatabaseFetcher
 
     now = datetime.now()
     notion = AioNotion(os.environ.get("NOTION_TOKEN"), rate_limit=5, burst_limit=30)
@@ -259,8 +197,8 @@ async def test_db_fetch():
                       }
               }
     database_fetcher = DatabaseFetcher(notion)
-    pages = await database_fetcher.fetch_database(dbid, _filter)
-    # pprint(pages)
+    pages = await database_fetcher.fetch_database(dbid, _filter, comments=True)
+    pprint(pages[-1])
     print(f"time: {datetime.now() - now} seconds, {len(pages)} pages")
     await notion.close()
 

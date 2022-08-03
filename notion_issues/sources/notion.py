@@ -2,9 +2,11 @@ import os
 import sys
 import urllib
 import requests
+from datetime import datetime, timedelta, timezone
 from pprint import pformat, pprint
 
-from notion_issues import IssueSource, unassigned_user
+from notion_issues import unassigned_user
+from notion_issues.sources import IssueSource
 from notion_issues.services.notion import Notion
 
 class NotionSource(IssueSource):
@@ -18,41 +20,96 @@ class NotionSource(IssueSource):
                     notion_database)
         self.page_id_map = {}
 
-    def get_issues(self, issue_key_filter=""):
+    def id_to_key(self, _id):
+        for issue_key, page_id in self.page_id_map.values():
+            if page_id == _id:
+                return issue_key
+        return ""
+
+    def key_to_id(self, key):
+        if key in self.page_id_map:
+            return self.page_id_map.get(key)
+
+        _filter = {
+                "property": "Issue Key",
+                "rich_text": {
+                        "equals": key
+                    }
+                }
+        results = self.notion.database_query(self.notion_database_id, _filter)
+        pages = results.get('results')
+        if pages:
+            return pages[0]['id']
+
+        return None
+
+
+    def _issue_to_issue_dict(self, page, page_properties):
+        output = {
+              "title": page_properties['Title'],
+              "status": page_properties['Status'],
+              "assignee": page_properties['Assignee'],
+              "reporter": page_properties['Reporter'],
+              "labels": page_properties['Labels'],
+              "due_on": self.normalize_date(
+                                page_properties['Due Date']),
+              "opened_on": self.normalize_date(
+                                page_properties['Opened On']),
+              "updated_on": self.normalize_date(
+                                page['last_edited_time']),
+              "link": page_properties['Link'],
+        }
+        return output
+
+    def get_issue(self, _id):
+        page = self.notion.get_page(_id)
+        props = self.notion.property_values(page['id'], page['properties'])
+        self.page_id_map[props['Issue Key']] = page['id']
+        return self._issue_to_issue_dict(page, props)
+
+    def get_issues(self, issue_key_filter="", since=None, assignee=None):
         output = {}
-        _filter = {}
+        _filters = []
+
         if issue_key_filter:
-            _filter = { "property": "Issue Key",
+            _filters.append({ "property": "Issue Key",
                               "rich_text": {
                                   "starts_with": issue_key_filter
                               }
-                      }
+                      })
+
+        if since:
+            _filters.append({
+                    "timestamp": "last_edited_time",
+                    "last_edited_time": {
+                        "after": self.normalize_date(since)
+                    }
+                })
+
+        if assignee:
+            _filters.append({
+                    "property": "Assignee",
+                    "select": {
+                        "equals": assignee
+                    }
+                })
+
+        _filter = {}
+        if _filters:
+            if len(_filters) > 1:
+                _filter = { "and": _filters }
+            else:
+                _filter = _filters[0]
+
         notion_items = self.notion.database_query(
                 self.notion_database_id, _filter)
 
-        for item in notion_items.get('results', []):
-            page_details = self.notion.get_page(item['id'])
+        for issue in notion_items.get('results', []):
             page_properties = self.notion.property_values(
-                    item['id'], page_details['properties'])
+                    issue['id'], issue['properties'])
             key = page_properties['Issue Key']
-
-
-            output[key] = {
-                  "title": page_properties['Title'],
-                  "status": page_properties['Status'],
-                  "assignee": page_properties['Assignee'],
-                  "reporter": page_properties['Reporter'],
-                  "labels": page_properties['Labels'],
-                  "due_on": self.normalize_date(
-                                    page_properties['Due Date']),
-                  "opened_on": self.normalize_date(
-                                    page_properties['Opened On']),
-                  "updated_on": self.normalize_date(
-                                    page_details['last_edited_time']),
-                  "link": page_properties['Link'],
-            }
-
-            self.page_id_map[key] = item['id']
+            output[key] = self._issue_to_issue_dict(issue, page_properties)
+            self.page_id_map[key] = issue['id']
 
         return output
 
@@ -130,6 +187,7 @@ class NotionSource(IssueSource):
 if __name__ == '__main__':
     notion_token = os.environ.get("NOTION_TOKEN")
     notion_database = sys.argv[1]
+    since = datetime.now(timezone.utc) - timedelta(seconds=60*60*24*5)
 
     source = NotionSource(notion_token, notion_database)
-    pprint(source.get_issues())
+    pprint(source.get_issues(since=since))

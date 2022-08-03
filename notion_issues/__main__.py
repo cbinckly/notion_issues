@@ -1,20 +1,23 @@
 import os
 import sys
 import argparse
+from pathlib import Path
 from pprint import pprint, pformat
-from dateutil import parser
+from dateutil import parser as date_parser
 from datetime import datetime, timedelta, timezone
 
 from notion_issues import IssueSync
 from notion_issues.sources._github import GithubSource
-from notion_issues.sources.jira import JiraSource
+from notion_issues.sources._jira import JiraSource
 from notion_issues.sources.bitbucket import BitbucketSource
 from notion_issues.sources.notion import NotionSource
 from notion_issues.logger import Logger
 
 log = Logger('notion_issues')
+THIRTY_DAYS = timedelta(seconds=60*60*24*30)
 
 defaults = {
+        'since': datetime.now(timezone.utc) - THIRTY_DAYS,
         'jira_token': os.environ.get("JIRA_TOKEN"),
         'jira_server': os.environ.get("JIRA_SERVER"),
         'jira_project': os.environ.get("JIRA_PROJECT"),
@@ -29,6 +32,10 @@ defaults = {
                                            "https://api.bitbucket.org")
         }
 
+def load_since(path):
+    with Path(path).open('r') as f:
+        return parser.parse(f.read())
+
 def parse_args():
     parser = argparse.ArgumentParser('notion_issues')
     parser.add_argument('-nt', '--notion-token', type=str,
@@ -37,6 +44,12 @@ def parse_args():
     parser.add_argument('-nd', '--notion-database', type=str,
             default=defaults['notion_database'],
             help=f"Notion database ID. Default: {defaults['notion_database']}")
+    since = parser.add_mutually_exclusive_group(required=False)
+    since.add_argument('-s', '--since', metavar='YYYYmmddTHHMMSS',
+            default=defaults['since'], type=date_parser.parse,
+            help=f"Sync issues since date time. Default: {defaults['since']}")
+    since.add_argument('-sf', '--since-file', metavar='PATH',
+            type=load_since, help=f"Sync issues since date time in file.")
     parser.add_argument('-v', '--verbose', action='store_true',
             help=f"Turn on verbose logging")
     parser.add_argument('--create-closed', action='store_true',
@@ -180,7 +193,9 @@ def main():
         log.error("args not valid, stopping.")
         sys.exit(1)
     syncer = IssueSync(
-            args.create_closed, args.create_assignee, args.archive_aged)
+            args.create_closed, args.create_assignee,
+            args.since_file or args.since,
+            args.archive_aged)
     args.func(args, syncer)
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from notion_issues import IssueSync
 from notion_issues.sources._github import GithubSource
-from notion_issues.sources.jira import JiraSource
+from notion_issues.sources._jira import JiraSource
 from notion_issues.sources.bitbucket import BitbucketSource
 from notion_issues.sources.notion import NotionSource
 from notion_issues.logger import Logger

@@ -4,14 +4,6 @@ from notion_issues.logger import Logger
 
 log = Logger('notion_issues.helpers.notion')
 
-class NotionHelper():
-
-    def __init__(self, notion):
-        self.notion = notion
-
-    def get_page(self, page_id, props, comments):
-        pass
-
 class PropertyFetcher:
 
     def __init__(self, notion):
@@ -46,6 +38,13 @@ class PropertyFetcher:
         return self.properties
 
 class DatabaseFetcher:
+    """Fetch all pages matching a query from a database.
+
+    Fetches properties, pages, and comments concurrently.
+
+    :param notion: instance of the AioNotion client.
+    :type notion: notion_issues.services.aionotion.AioNotion
+    """
 
     def __init__(self, notion):
         self.notion = notion
@@ -84,5 +83,16 @@ class DatabaseFetcher:
         await asyncio.gather(*executors)
 
     async def fetch_database(self, database_id, _filter, comments=False):
+        """Fetch all matching pages, properties, and comments for a database.
+        :param database_id: notion database id
+        :type database_id: str
+        :param filter: notion database filter (see https://developers.notion.com/reference/post-database-query-filter)
+        :type filter: dict
+        :param comments: fetch comments for all pages?
+        :type comments: bool
+        :returns: database contents with properties and comments in line.
+        :rtype: dict
+        """
+
         await self._fetch_database(database_id, _filter, comments)
         return self.pages

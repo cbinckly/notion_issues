@@ -116,6 +116,8 @@ class JiraSource(IssueSource):
                     self.jira.transition_issue(issue, transition['id'])
                 except JIRAError as e:
                     log.error(f"failed to transition: {e}")
+                finally:
+                    break
 
     def __str__(self):
         return f"Jira Source: {self.project}"

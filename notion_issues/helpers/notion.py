@@ -35,7 +35,7 @@ class PropertyFetcher:
 
     async def fetch_properties(self, page_id, properties):
         await self._fetch_properties(page_id, properties)
-        return self.properties
+        return self.notion.flatten_property_values(self.properties)
 
 class DatabaseFetcher:
     """Fetch all pages matching a query from a database.

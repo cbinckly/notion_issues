@@ -145,12 +145,10 @@ class AioNotion:
 
         return resp_json
 
-    async def property_values(self, page_id, properties):
-        """Get and flatten property values."""
+    def flatten_property_values(self, properties):
+        """Flatten property values."""
         _properties = {}
-        for key, info in properties.items():
-            property_info = await self.get_property(page_id, info['id'])
-            value = property_info
+        for key, property_info in properties.items():
 
             _object = property_info.get('object')
             if _object == 'property_item':

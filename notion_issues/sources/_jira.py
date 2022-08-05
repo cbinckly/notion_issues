@@ -87,6 +87,9 @@ class JiraSource(IssueSource):
         return output
 
     def update_issue(self, key, issue_dict):
+        """
+        Note: jira doesn't care if user names are in the correct case.
+        """
         issue = self.jira.issue(key)
         fields = {
                 "summary": issue_dict['title'],

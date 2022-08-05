@@ -8,6 +8,9 @@ from pprint import pformat, pprint
 from notion_issues import unassigned_user
 from notion_issues.sources import IssueSource
 from notion_issues.services.notion import Notion
+from notion_issues.logger import Logger
+
+log = Logger('notion_issues.sources.notion')
 
 class NotionSource(IssueSource):
 
@@ -100,6 +103,8 @@ class NotionSource(IssueSource):
                 _filter = { "and": _filters }
             else:
                 _filter = _filters[0]
+
+        log.debug(f'notion filter: {pformat(_filter)}')
 
         notion_items = self.notion.database_query(
                 self.notion_database_id, _filter)

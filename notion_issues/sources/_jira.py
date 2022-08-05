@@ -10,21 +10,29 @@ log = Logger('notion_issues.sources.jira')
 
 class JiraSource(IssueSource):
 
-    closed_statuses = ['Closed', 'Resolved']
-    to_notion_status_map = {
-            'Closed': 'closed',
-            'Resolved': 'resolved',
-            'Open': 'open',
-            'Analyzed': 'analyzed',
-            'In-Progress': 'in-progress',
-          }
-
-    from_notion_status_map = None
+    closed_statuses = ['closed', 'resolved']
 
     def __init__(self, jira_token, jira_project, jira_server):
         self.jira = jira.JIRA(options={'server': jira_server},
                          token_auth=jira_token)
         self.project = jira_project
+        self.__status_map = {}
+
+    @property
+    def _status_map(self):
+        if not self.__status_map:
+            self.__status_map = { s.name: s.name.lower()
+                                  for s in self.jira.statuses() }
+        return self.__status_map
+
+    def status_to_notion(self, status):
+        return self._status_map.get(status, '')
+
+    def status_to_source(self, status):
+        for jira_status, notion_status in self._status_map.items():
+            if status == notion_status:
+                return jira_status
+        return ""
 
     def id_to_key(self, _id):
         return _id
@@ -39,13 +47,13 @@ class JiraSource(IssueSource):
 
     def _issue_to_issue_dict(self, issue):
         if issue.fields.assignee:
-            assignee = issue.fields.assignee.name
+            assignee = issue.fields.assignee.name.lower()
         else:
             assignee = unassigned_user
 
         output = {
               "title": issue.fields.summary,
-              "status": issue.fields.status.name,
+              "status": self.status_to_notion(issue.fields.status.name),
               "assignee": assignee,
               "reporter": issue.fields.creator.key,
               "labels": [issue.fields.priority.name,
@@ -79,6 +87,9 @@ class JiraSource(IssueSource):
         return output
 
     def update_issue(self, key, issue_dict):
+        """
+        Note: jira doesn't care if user names are in the correct case.
+        """
         issue = self.jira.issue(key)
         fields = {
                 "summary": issue_dict['title'],
@@ -95,7 +106,7 @@ class JiraSource(IssueSource):
         except JIRAError as e:
             log.error(f"failed to update: {e}")
 
-        status = issue_dict['status']
+        status = self.status_to_source(issue_dict['status'])
         for transition in self.jira.transitions(issue):
             name = transition['to']['name']
             log.debug(f'assessing transition to {name}=={status}?')
@@ -105,6 +116,8 @@ class JiraSource(IssueSource):
                     self.jira.transition_issue(issue, transition['id'])
                 except JIRAError as e:
                     log.error(f"failed to transition: {e}")
+                finally:
+                    break
 
     def __str__(self):
         return f"Jira Source: {self.project}"

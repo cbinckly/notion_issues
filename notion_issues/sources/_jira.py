@@ -10,7 +10,7 @@ log = Logger('notion_issues.sources.jira')
 
 class JiraSource(IssueSource):
 
-    closed_statuses = ['Closed', 'Resolved']
+    closed_statuses = ['closed', 'resolved']
 
     def __init__(self, jira_token, jira_project, jira_server):
         self.jira = jira.JIRA(options={'server': jira_server},
@@ -47,7 +47,7 @@ class JiraSource(IssueSource):
 
     def _issue_to_issue_dict(self, issue):
         if issue.fields.assignee:
-            assignee = issue.fields.assignee.name
+            assignee = issue.fields.assignee.name.lower()
         else:
             assignee = unassigned_user
 

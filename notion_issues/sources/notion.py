@@ -48,7 +48,7 @@ class NotionSource(IssueSource):
                         "equals": key
                     }
                 }
-        db_id = await self.notion_database_id
+        db_id = await self.notion_database_id()
         results = await self.notion.database_query(db_id, _filter)
         pages = results.get('results')
         if pages:

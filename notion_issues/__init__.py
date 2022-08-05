@@ -33,10 +33,10 @@ class IssueSync:
             kwargs['since'] = self.since
         return kwargs
 
-    def sync_sources(self, notion_source, other_source, issue_key_filter=""):
+    async def sync_sources(self, notion_source, other_source, issue_key_filter=""):
         source_kwargs = self._source_kwargs()
         source_issues = other_source.get_issues(**source_kwargs)
-        notion_issues = notion_source.get_issues(issue_key_filter, since=self.since)
+        notion_issues = await notion_source.get_issues(issue_key_filter, since=self.since)
 
         threshold = datetime.now(timezone.utc) - timedelta(seconds=60*60*24*31)
 
@@ -47,9 +47,9 @@ class IssueSync:
         log.debug(f"other_source missing keys: {missing_other}")
 
         for key in missing_notion:
-            _id = notion_source.key_to_id(key)
+            _id = await notion_source.key_to_id(key)
             if _id:
-                issue = notion_source.get_issue(_id)
+                issue = await notion_source.get_issue(_id)
                 if issue:
                     notion_issues[key] = issue
 
@@ -74,7 +74,7 @@ class IssueSync:
                     if issue_dict['updated_on'] > notion_issue['updated_on']:
                         log.debug(f"{key}: other source is newer")
                         log.debug(f"{key}: updating with {pformat(issue_dict)}")
-                        notion_source.update_issue(key, issue_dict)
+                        await notion_source.update_issue(key, issue_dict)
                         log.info(f"{key}: notion updated successfully.")
                     else:
                         log.debug(f"{key}: notion source is newer")
@@ -89,7 +89,7 @@ class IssueSync:
                         last_edit = parser.isoparse(notion_issue['updated_on'])
                         if last_edit < threshold:
                             log.info(f"{key}: archiving aged issue.")
-                            notion_source.archive_issue(key)
+                            await notion_source.archive_issue(key)
 
             else:
                 log.debug(f"{key}: does not exist in notion")
@@ -103,7 +103,7 @@ class IssueSync:
                         log.debug(f'{key}: not for {self.create_assignee}')
                         continue
 
-                resp = notion_source.create_issue(key, issue_dict)
+                resp = await notion_source.create_issue(key, issue_dict)
                 log.debug(f"{key}: {pformat(resp)}")
                 if 'status' in resp:
                     log.error(f'failed to create in notion: {pformat(resp)}')

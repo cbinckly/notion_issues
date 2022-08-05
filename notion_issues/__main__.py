@@ -1,5 +1,6 @@
 import os
 import sys
+import asyncio
 import argparse
 from pathlib import Path
 from pprint import pprint, pformat
@@ -118,40 +119,40 @@ def parse_args():
 
     return parser.parse_args()
 
-def notion_maintain(args, syncer):
+async def notion_maintain(args, syncer):
     notion_source = NotionSource(args.notion_token, args.notion_database)
     if args.delete_key:
         log.info(f"{args.delete_key}: archive issue requested.")
-        issues = notion_source.get_issues()
+        issues = await notion_source.get_issues()
         if args.delete_key in issues:
             log.info(f"{args.delete_key}: archive issue.")
-            resp = notion_source.archive_issue(args.delete_key)
+            resp = await notion_source.archive_issue(args.delete_key)
             log.debug(f"{args.delete_key}: response {pformat(resp)}")
         else:
             log.error(f"{args.delete_key} not found in notion.")
     elif args.delete_matching_keys:
         log.info(f"{args.delete_matching_keys}: archive matching requested.")
-        issues = notion_source.get_issues()
+        issues = await notion_source.get_issues()
         for key in issues.keys():
             if key.startswith(args.delete_matching_keys):
                 log.info(f"{key}: archive issue.")
-                notion_source.archive_issue(key)
+                await notion_source.archive_issue(key)
 
-def github_sync(args, syncer):
+async def github_sync(args, syncer):
     notion_source = NotionSource(args.notion_token, args.notion_database)
     github_source = GithubSource(args.github_token, args.github_repo)
     _filter = args.github_repo
     if not args.github_use_path:
         _filter = args.github_repo.rsplit('/', 1)[1]
-    syncer.sync_sources(notion_source, github_source, _filter)
+    await syncer.sync_sources(notion_source, github_source, _filter)
 
-def jira_sync(args, syncer):
+async def jira_sync(args, syncer):
     notion_source = NotionSource(args.notion_token, args.notion_database)
     jira_source = JiraSource(args.jira_token, args.jira_project,
                              args.jira_server)
-    syncer.sync_sources(notion_source, jira_source, args.jira_project)
+    await syncer.sync_sources(notion_source, jira_source, args.jira_project)
 
-def bitbucket_sync(args, syncer):
+async def bitbucket_sync(args, syncer):
     notion_source = NotionSource(args.notion_token, args.notion_database)
     bitbucket_source = BitbucketSource(
             args.bitbucket_user, args.bitbucket_app_password,
@@ -159,7 +160,7 @@ def bitbucket_sync(args, syncer):
     _filter = args.bitbucket_repo
     if not args.bitbucket_use_path:
         _filter = args.bitbucket_repo.rsplit('/', 1)[1]
-    syncer.sync_sources(notion_source, bitbucket_source, _filter)
+    await syncer.sync_sources(notion_source, bitbucket_source, _filter)
 
 def validate(args):
     errors = []
@@ -181,7 +182,7 @@ def validate(args):
             errors.append("Jira project is required.")
     return errors
 
-def main():
+async def async_main():
     args = parse_args()
     if args.verbose:
         log.verbose()
@@ -196,7 +197,18 @@ def main():
             args.create_closed, args.create_assignee,
             args.since_file or args.since,
             args.archive_aged)
-    args.func(args, syncer)
+    await args.func(args, syncer)
+
+def main():
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(async_main())
+    except asyncio.exceptions.CancelledError:
+        log.error('Cancelled.')
+    except Exception as err:
+        msg = (f"Exception {err} raised.")
+        log.error(msg, exc_info=True)
 
 if __name__ == '__main__':
     main()

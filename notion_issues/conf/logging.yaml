@@ -11,7 +11,11 @@ handlers:
     stream: ext://sys.stdout
 loggers:
   notion_issues:
-    level: DEBUG
+    level: INFO
+    handlers: [console]
+    propagate: no
+  aio_api_sm:
+    level: INFO
     handlers: [console]
     propagate: no
   github:
@@ -19,5 +23,5 @@ loggers:
     handlers: [console]
     propagate: no
 root:
-  level: DEBUG
+  level: INFO
   handlers: [console]

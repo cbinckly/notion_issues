@@ -1,5 +1,6 @@
 import logging
 from pprint import pprint
+
 from notion_issues.logger import Logger
 
 log = Logger('notion_issues.services.paginated_list')
@@ -7,19 +8,21 @@ log = Logger('notion_issues.services.paginated_list')
 class PaginatedList:
     """It should act like a list."""
 
-    def __init__(self, client, method, url, params={}, body={}):
+    def __init__(self, client, method, url, params={}, body={}, last_resp={}):
         self._client = client
         self._method = method.lower()
         self._base_url = url
         self._base_params = params
         self._base_body = body
-        self._last_resp = {}
+        self._last_resp = last_resp
         self._list = []
+        if self._last_resp:
+            self._list.extend(self._last_resp['results'])
         log.debug(f"{self}")
 
     def __str__(self):
         return (f"PaginatedList({self._client}, {self._method}, {self._base_url}, "
-                f"{self._base_params}, {self._base_body})")
+                f"{self._base_params}, {self._base_body}) [{len(self._list)}]")
 
     @property
     def __fetched(self):

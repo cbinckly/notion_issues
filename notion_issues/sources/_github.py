@@ -5,6 +5,9 @@ from github import Github
 
 from notion_issues import unassigned_user
 from notion_issues.sources import IssueSource, ISO_UTC_FMT
+from notion_issues.logger import Logger
+
+log = Logger('notion_issues.sources._github')
 
 class GithubSource(IssueSource):
 
@@ -79,7 +82,7 @@ class GithubSource(IssueSource):
             if issue.pull_request and not self.include_pull_requests:
                 continue
 
-            key = self.id_to_key(issue.id)
+            key = self.id_to_key(issue.number)
 
             output[key] = self._issue_to_issue_dict(issue)
 

@@ -1,6 +1,6 @@
 ## Notion Issues
 
-This simple set of Python scripts can be used to pull issue information from
+A simple tool to pull issue information from
 Jira, Bitbucket, or Github into a Notion database. Although simple, it 
 provides a powerful way to see all your issues in one place.
 
@@ -18,11 +18,16 @@ provides a powerful way to see all your issues in one place.
     - Created On
     - Link
 - Keep the issues that are already in the database up to date.
+- Push changes to some fields back to the source:
+    - All Sources: Assignee, State, Title
+    - Bitbucket and Jira: Due On
+- Archive old, closed issues to remove them from your view.
+- Use filters to ignore closed issues or issues that aren't assigned to you.
 
 ### How do I use it?
 
-It is pretty simple.  You provide the service information, tokens, and database
-name, we do the hard work.
+You provide the service information, tokens, and database
+name, the tool does the hard work.
 
 The general help applies to all issue sources:
 ```

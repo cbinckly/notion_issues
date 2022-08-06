@@ -21,7 +21,7 @@ class PropertyFetcher:
                 prop = await self.notion.get_property(page_id, property_id)
                 self.properties[property_name] = prop
         except Exception as e:
-            log.error(f"_property_queue_handler failed: {e}")
+            log.error(f"_property_queue_handler failed: {e}", exc_info=True)
 
     async def _fetch_properties(self, page_id, properties):
         q = asyncio.Queue()
@@ -36,7 +36,7 @@ class PropertyFetcher:
 
     async def fetch_properties(self, page_id, properties):
         await self._fetch_properties(page_id, properties)
-        return self.notion.flatten_property_values(self.properties)
+        return await self.notion.flatten_property_values(self.properties)
 
 class DatabaseFetcher:
     """Fetch all pages matching a query from a database.
@@ -66,16 +66,18 @@ class DatabaseFetcher:
                     page['comments'] = await self.notion.get_comments(page['id'])
                 self.pages.append(page)
         except Exception as e:
-            log.error(f"_consume_queue failed: {e}")
+            log.error(f"_consume_queue failed: {e}", exc_info=True)
 
     async def _fetch_database(self, database_id, _filter, comments):
         q = asyncio.Queue()
         concurrency = 10
 
         pages = await self.notion.database_query(database_id, _filter)
-        if not pages.get('results'):
+        log.debug(f"pages: {pages}")
+        if not pages['results']:
             log.info(f"{pformat(pages)} entries in DB")
-        for page in pages.get('results', []):
+        async for page in pages['results']:
+            log.debug(f'putting page {page} on queue.')
             await q.put((page, comments))
         for _ in range(0, concurrency):
             await q.put((None, None))

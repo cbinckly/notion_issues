@@ -125,8 +125,11 @@ class AioNotion:
 
     async def get_comments(self, page_id):
         url = self.url('comments', {}, {'block_id': page_id})
+        resp_json = await self._request_manager.request('get', url)
 
-        return PaginatedList(self, 'get', url)
+        resp_json['results'] = PaginatedList(self, 'get', url, last_resp=resp_json)
+
+        return resp_json
 
     async def update_page(self, page_id, properties={}, archived=False):
         url = self.url('page', {'page_id': page_id})

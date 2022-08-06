@@ -110,33 +110,33 @@ def parse_args():
 
     notion_parser = subparsers.add_parser(
             'notion', help='Maintain issues in Notion.')
-    notion_delete = notion_parser.add_mutually_exclusive_group(required=True)
-    notion_delete.add_argument('--delete-key', metavar="KEY", type=str,
-            help=f"Delete an issue with a specific key from Notion.")
-    notion_delete.add_argument('--delete-matching-keys', metavar="PATTERN",
+    notion_archive = notion_parser.add_mutually_exclusive_group(required=True)
+    notion_archive.add_argument('--archive-key', metavar="KEY", type=str,
+            help=f"Archive an issue with a specific key from Notion.")
+    notion_archive.add_argument('--archive-matching-keys', metavar="PATTERN",
             type=str,
-            help=f"Delete issues with keys that begin with PATTERN.")
+            help=f"Archive issues with keys that begin with PATTERN.")
     notion_parser.set_defaults(func=notion_maintain)
 
     return parser.parse_args()
 
 async def notion_maintain(args, syncer):
     notion_source = NotionSource(args.notion_token, args.notion_database)
-    if args.delete_key:
-        log.info(f"{args.delete_key}: archive issue requested.")
+    if args.archive_key:
+        log.info(f"{args.archive_key}: archive issue requested.")
         issues = await notion_source.get_issues()
-        if args.delete_key in issues:
-            log.info(f"{args.delete_key}: archive issue.")
-            resp = await notion_source.archive_issue(args.delete_key)
-            log.debug(f"{args.delete_key}: response {pformat(resp)}")
+        if args.archive_key in issues:
+            log.info(f"{args.archive_key}: archive issue.")
+            resp = await notion_source.archive_issue(args.archive_key)
+            log.debug(f"{args.archive_key}: response {pformat(resp)}")
         else:
-            log.error(f"{args.delete_key} not found in notion.")
-    elif args.delete_matching_keys:
-        log.info(f"{args.delete_matching_keys}: archive matching requested.")
+            log.error(f"{args.archive_key} not found in notion.")
+    elif args.archive_matching_keys:
+        log.info(f"{args.archive_matching_keys}: archive matching requested.")
         issues = await notion_source.get_issues(
-                issue_key_filter=args.delete_matching_keys)
+                issue_key_filter=args.archive_matching_keys)
         for key in issues.keys():
-            if key.startswith(args.delete_matching_keys):
+            if key.startswith(args.archive_matching_keys):
                 log.info(f"{key}: archive issue.")
                 await notion_source.archive_issue(key)
 

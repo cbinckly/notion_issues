@@ -12,7 +12,7 @@ class IssueSync:
     ignore_fields = ['updated_on', 'opened_on', 'reporter', 'link']
 
     def __init__(self, create_closed=False, create_assignee='',
-            since="", archive_aged=True):
+            since="", archive_aged=7):
         self.create_closed = create_closed
         self.create_assignee = create_assignee
         self.archive_aged = archive_aged
@@ -38,7 +38,7 @@ class IssueSync:
         source_issues = other_source.get_issues(**source_kwargs)
         notion_issues = await notion_source.get_issues(issue_key_filter, since=self.since)
 
-        threshold = datetime.now(timezone.utc) - timedelta(seconds=60*60*24*31)
+        threshold = datetime.now(timezone.utc) - timedelta(seconds=60*60*24*self.archive_aged)
 
         missing_notion = set(source_issues.keys()) - set(notion_issues.keys())
         missing_other = set(notion_issues.keys()) - set(source_issues.keys())

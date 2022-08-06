@@ -5,6 +5,8 @@ from importlib.resources import files, as_file
 
 class Logger():
 
+    managed_logs = ['', 'notion_issues']
+
     def __init__(self, name):
         self.name = name
         self.load_config()
@@ -22,8 +24,5 @@ class Logger():
         raise AttributeError(f'{self.log.__class__.__name__}.{attr} doesnt exist')
 
     def verbose(self):
-        self.log.setLevel(logging.DEBUG)
-
-
-
-
+        for log in self.managed_logs:
+            logging.getLogger(log).setLevel(logging.DEBUG)

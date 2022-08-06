@@ -15,7 +15,7 @@ loggers:
     handlers: [console]
     propagate: no
   aio_api_sm:
-    level: DEBUG
+    level: INFO
     handlers: [console]
     propagate: no
   github:
@@ -23,5 +23,5 @@ loggers:
     handlers: [console]
     propagate: no
 root:
-  level: DEBUG
+  level: INFO
   handlers: [console]

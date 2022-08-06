@@ -122,7 +122,6 @@ class NotionSource(IssueSource):
 
         output = {}
         for page in pages:
-            pprint(page)
             key = page['properties']['Issue Key']
             props = self._issue_to_issue_dict(page, page['properties'])
             output[key] = props

@@ -6,9 +6,10 @@ import argparse
 from pprint import pformat, pprint
 
 from aio_api_sm import AioApiSessionManager
+from notion_issues.services import PaginatedList
 from notion_issues.logger import Logger
 
-log = Logger(__name__)
+log = Logger('notion_issues.services.aionotion')
 
 defaults = {
         'notion_token': os.environ.get("NOTION_TOKEN"),
@@ -90,8 +91,9 @@ class AioNotion:
         if sorts:
             payload['sorts'] = sorts
 
-        resp_json = await self._request_manager.post(url, json=payload)
-
+        resp_json = await self._request_manager.request('post', url, json=payload)
+        resp_json['results'] = PaginatedList(
+                self, "post", url, body=payload, last_resp=resp_json)
         return resp_json
 
     async def add_page_to_database(self, database_id, properties):
@@ -124,16 +126,15 @@ class AioNotion:
     async def get_comments(self, page_id):
         url = self.url('comments', {}, {'block_id': page_id})
 
-        resp_json = await self._request_manager.request('get', url)
-
-        return resp_json
+        return PaginatedList(self, 'get', url)
 
     async def update_page(self, page_id, properties={}, archived=False):
         url = self.url('page', {'page_id': page_id})
 
         payload = {'properties': properties, 'archived': archived}
 
-        resp_json = await self._request_manager.request('patch', url, json=payload)
+        resp_json = await self._request_manager.request(
+                'patch', url, json=payload)
 
         return resp_json
 
@@ -142,15 +143,18 @@ class AioNotion:
                                 'property_id': property_id})
 
         resp_json = await self._request_manager.request('get', url)
+        if resp_json.get('object') == 'list':
+            resp_json['results'] = PaginatedList(
+                    self, 'get', url, last_resp=resp_json)
 
         return resp_json
 
-    def flatten_property_values(self, properties):
+    async def flatten_property_values(self, properties):
         """Flatten property values."""
         _properties = {}
         for key, property_info in properties.items():
-
             _object = property_info.get('object')
+
             if _object == 'property_item':
                 _type = property_info.get('type')
                 if _type == 'multi_select':
@@ -165,16 +169,14 @@ class AioNotion:
                     value = ""
                     if property_info.get('date'):
                         value = property_info['date']['start']
-            elif _object == 'list':
+            else:
                 _type = property_info.get('property_item', {}).get('type')
+                results = property_info.get('results', [])
                 if _type == 'title':
-                    results = property_info.get('results', [])
-                    components = [i['title']['plain_text'] for i in results]
-                    value = " ".join(components)
+                    components = [i['title']['plain_text'] async for i in results]
                 elif _type == 'rich_text':
-                    results = property_info.get('results', [])
-                    components = [i['rich_text']['plain_text'] for i in results]
-                    value = " ".join(components)
+                    components = [i['rich_text']['plain_text'] async for i in results]
+                value = " ".join(components)
 
             _properties[key] = value
 
@@ -189,18 +191,21 @@ async def test_db_fetch():
     now = datetime.now()
     notion = AioNotion(os.environ.get("NOTION_TOKEN"), rate_limit=5, burst_limit=30)
     dbid = await notion.database_id_for_name("Issues")
+    print(dbid)
     _filter = { "property": "Issue Key",
                       "rich_text": {
                           "starts_with": "RFPIO"
                       }
               }
     database_fetcher = DatabaseFetcher(notion)
+    print("fetching")
     pages = await database_fetcher.fetch_database(dbid, _filter, comments=True)
     pprint(pages[-1])
     print(f"time: {datetime.now() - now} seconds, {len(pages)} pages")
     await notion.close()
 
 if __name__ == '__main__':
+    Logger.verbose()
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -210,4 +215,4 @@ if __name__ == '__main__':
     except Exception as err:
         msg = (f"Exception {err} raised.")
         log.error(msg, exc_info=True)
-
+        print(msg)

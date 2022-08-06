@@ -52,7 +52,11 @@ class NotionSource(IssueSource):
         results = await self.notion.database_query(db_id, _filter)
         pages = results.get('results')
         if pages:
-            return pages[0]['id']
+            try:
+                page = await pages[0]
+                return page['id']
+            except IndexError:
+                pass
 
         return None
 

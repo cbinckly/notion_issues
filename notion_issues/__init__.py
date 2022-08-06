@@ -9,7 +9,7 @@ unassigned_user = "unassigned"
 
 class IssueSync:
 
-    ignore_fields = ['updated_on', 'opened_on', 'reporter']
+    ignore_fields = ['updated_on', 'opened_on', 'reporter', 'link']
 
     def __init__(self, create_closed=False, create_assignee='',
             since="", archive_aged=True):

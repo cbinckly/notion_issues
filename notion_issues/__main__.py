@@ -57,8 +57,9 @@ def parse_args():
             help=f"Create new entries for closed issues.")
     parser.add_argument('--create-assignee', metavar="ASSIGNEE", type=str,
             help=f"Only create new entries for issues assigned to assignee.")
-    parser.add_argument('--archive-aged', action='store_true',
-            help=f"Remove entries that have been closed for over a month.")
+    parser.add_argument('--archive-aged', metavar="DAYS", type=int, default=7,
+            help=(f"Remove entries that have been closed for DAYS. Default 7. "
+                  f"Set to 0 to disable archiving"))
 
 
     subparsers = parser.add_subparsers(
@@ -132,7 +133,8 @@ async def notion_maintain(args, syncer):
             log.error(f"{args.delete_key} not found in notion.")
     elif args.delete_matching_keys:
         log.info(f"{args.delete_matching_keys}: archive matching requested.")
-        issues = await notion_source.get_issues()
+        issues = await notion_source.get_issues(
+                issue_key_filter=args.delete_matching_keys)
         for key in issues.keys():
             if key.startswith(args.delete_matching_keys):
                 log.info(f"{key}: archive issue.")
